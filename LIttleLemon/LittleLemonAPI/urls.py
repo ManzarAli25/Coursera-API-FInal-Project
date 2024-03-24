@@ -1,5 +1,5 @@
 from django.urls import path
-from .views import MenuItemView,SingleMenuItemView
+from .views import MenuItemView,SingleMenuItemView, ManagerViewSet
 
 urlpatterns = [
         path('menu-items/', MenuItemView.as_view({'get': 'list',
@@ -13,6 +13,11 @@ urlpatterns = [
                                                           'delete':'destroy'
                                                           }),
               name='menu_items'),
+        
+        path('groups/manager/users/',ManagerViewSet.as_view({'get': 'list',
+                                                  'post':'create',
+                                                  'delete':'destroy'}
+                                                 ),name="manager"),
 
 
 ]
