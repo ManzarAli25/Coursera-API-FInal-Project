@@ -41,9 +41,31 @@ class ManagerViewSet(viewsets.ViewSet):
         user = get_object_or_404(User, username=request.data['username'])
         managers = Group.objects.get(name="Manager")
         managers.user_set.remove(user)
-        
+
         return Response({"message":"delete successful! "}, status=status.HTTP_204_NO_CONTENT)
         
 
-        
+class DeliveryCrewViewSet(viewsets.ViewSet):
+    permission_classes = [IsAuthenticated,IsManager]
+    
+    
+    def list(self, request):
+        delivery_crew_group = Group.objects.get(name='Delivery Crew')
+        delivery_crew_users = delivery_crew_group.user_set.all()
+        serializer = UserSerializer(delivery_crew_users, many=True)
+        return Response(serializer.data,status=status.HTTP_200_OK)
+
+    def create(self, request):
+        user = get_object_or_404(User, username=request.data['username'])
+        delivery_crew = Group.objects.get(name="Delivery Crew")
+        delivery_crew.user_set.add(user)
+        serializer = UserSerializer(user)
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+    def destroy(self, request):
+        user = get_object_or_404(User, username=request.data['username'])
+        delivery_crew = Group.objects.get(name="Delivery Crew")
+        delivery_crew.user_set.remove(user)
+
+        return Response({"message":"delete successful! "}, status=status.HTTP_204_NO_CONTENT)
 
