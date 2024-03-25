@@ -8,20 +8,24 @@ from rest_framework import status, viewsets
 from django.contrib.auth.models import User, Group
 from django.shortcuts import get_object_or_404
 from decimal import Decimal
+from rest_framework.throttling import UserRateThrottle, AnonRateThrottle
 
 
 
 @permission_classes([IsAuthenticated,IsManagerOrReadOnly])
 class MenuItemView(viewsets.ModelViewSet):
+    throttle_classes = [AnonRateThrottle, UserRateThrottle]
     queryset = MenuItem.objects.all()
     serializer_class = MenuItemSerializer
     
 @permission_classes([IsAuthenticated,IsManagerOrReadOnly])
 class SingleMenuItemView(viewsets.ModelViewSet):
+    throttle_classes = [AnonRateThrottle, UserRateThrottle]
     queryset = MenuItem.objects.all()
     serializer_class = MenuItemSerializer
 
 class ManagerViewSet(viewsets.ViewSet):
+    throttle_classes = [AnonRateThrottle, UserRateThrottle]
     permission_classes = [IsAuthenticated,IsManager]
     
     
@@ -48,6 +52,7 @@ class ManagerViewSet(viewsets.ViewSet):
 
 class DeliveryCrewViewSet(viewsets.ViewSet):
     permission_classes = [IsAuthenticated,IsManager]
+    throttle_classes = [AnonRateThrottle, UserRateThrottle]
     
     
     def list(self, request):
@@ -73,6 +78,7 @@ class DeliveryCrewViewSet(viewsets.ViewSet):
 
 class CartViewSet(viewsets.ViewSet):
     permission_classes = [IsAuthenticated]
+    throttle_classes = [AnonRateThrottle, UserRateThrottle]
     
     def list(self, request):
         carts = Cart.objects.filter(user=request.user) 
@@ -108,6 +114,8 @@ class CartViewSet(viewsets.ViewSet):
   
              
 class OrderViewSet(viewsets.ViewSet):
+    permission_classes = [IsAuthenticated]
+    throttle_classes = [AnonRateThrottle, UserRateThrottle]
     
     def list(self, request):
 
@@ -152,14 +160,83 @@ class OrderViewSet(viewsets.ViewSet):
 
             
 
+
 class OrderManagementViewSet(viewsets.ViewSet):
+    permission_classes = [IsAuthenticated]
+    throttle_classes = [AnonRateThrottle, UserRateThrottle]
     
-    def retrieve(self,request):
-        pass
-    def update(self,request):
-        pass
-    def partial_update(self,request):
-        pass
+    def retrieve(self, request):
+        order_id = request.data.get("orderId")  # Using get() to avoid KeyError
+        try:
+            order = Order.objects.get(id=order_id)
+        except Order.DoesNotExist:
+            return Response({"message": "Order not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        if order.user != request.user:
+            return Response({"message": "This order does not belong to you."}, status=status.HTTP_403_FORBIDDEN)
+        else:
+            serializer = OrderSerializer(order)
+            return Response(serializer.data, status=status.HTTP_200_OK)
+        
+    def update(self, request):
+        order_id = request.data.get("orderId")
+        order = get_object_or_404(Order, id=order_id)
+        
+        if request.user.groups.filter(name='Manager').exists():
+            if order.status == 0:
+                order.status = 1
+    
+                delivery_crew_id = request.data.get('delivery_crew', None)
+                if delivery_crew_id:
+                    try:
+                        delivery_crew = User.objects.get(pk=delivery_crew_id)
+                        order.delivery_crew = delivery_crew
+                    except User.DoesNotExist:
+                        return Response({"message": "Delivery crew not found"}, status=status.HTTP_400_BAD_REQUEST)
+                order.save()
+                return Response({"message": "This order is on its way."}, status=status.HTTP_200_OK)
+            else:
+                return Response({"message": "This order is already out for delivery."}, status=status.HTTP_400_BAD_REQUEST)
+            
+        if request.user.groups.filter(name='Delivery Crew').exists():
+            if order.delivery_crew != request.user:
+                return Response({"message": "This order is not assigned to you."}, status=status.HTTP_403_FORBIDDEN)
+            else:
+                if order.status == 0:
+                    order.status = 1
+                    order.save()
+                    return Response({"message": "Order delivery confirmed."}, status=status.HTTP_200_OK)
+                else:
+                    order.status = 0
+                    order.save()
+                    return Response({"message": "Order status updated to out for delivery."}, status=status.HTTP_200_OK)
+    
+    @permission_classes([IsManager])
+    def destroy(self,request):
+        order = Order.objects.get(id=request.data["orderId"])
+        if not order.exists():
+            raise PermissionDenied("order foes not exist.")
+
+        carts.delete()
+        return Response({"message":"Order Successfully deleted."}, status=status.HTTP_204_NO_CONTENT)
+        
+        
+             
+        
+            
+
+
+                
+                
+                
+                
+
+            
+            
+            
+            
+
+        
     
     
     
