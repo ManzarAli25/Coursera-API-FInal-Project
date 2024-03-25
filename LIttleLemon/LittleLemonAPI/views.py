@@ -1,7 +1,7 @@
 from rest_framework.response import Response
 from rest_framework.decorators import api_view, permission_classes
-from .models import MenuItem,Cart
-from .serializers import MenuItemSerializer, UserSerializer, CartSerializer
+from .models import MenuItem,Cart,Order
+from .serializers import *
 from rest_framework.permissions import IsAuthenticated
 from .permissions import *
 from rest_framework import status, viewsets
@@ -107,4 +107,59 @@ class CartViewSet(viewsets.ViewSet):
         return Response({"message":"Your cart has been emptied."}, status=status.HTTP_204_NO_CONTENT)
   
              
+class OrderViewSet(viewsets.ViewSet):
+    
+    def list(self, request):
+
+        if request.user.groups.filter(name='Manager').exists():
+            orders = Order.objects.all()
+            serializer = OrderSerializer(orders,many=True)
+            return Response(serializer.data,status=status.HTTP_200_OK)
+            
+        elif request.user.groups.filter(name='Delivery Crew').exists():
+            orders = Order.objects.filter(delivery_crew=request.user)
+            serializer = OrderSerializer(orders,many=True)
+            return Response(serializer.data,status=status.HTTP_200_OK) 
+        
+        else:
+            orders = Order.objects.filter(user=request.user)
+            serializer = OrderSerializer(orders,many=True)
+            return Response(serializer.data,status=status.HTTP_200_OK) 
+
+
+    def create(self, request):
+        cart_items = Cart.objects.filter(user=request.user)
+        order = Order.objects.create(user=request.user, status=False, date=datetime.date.today())
+        total_price = 0
+        for cart_item in cart_items:
+            order_item = OrderItem.objects.create(
+                order=order,
+                menuitem=cart_item.menuitem,
+                quantity=cart_item.quantity,
+                unit_price=cart_item.unit_price,
+                price=cart_item.price
+            )
+            total_price += cart_item.price
+        
+        order.total = total_price
+        order.save()
+        cart_items.delete()
+        serializer = OrderSerializer(order)
+        
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+        
+
+
+            
+
+class OrderManagementViewSet(viewsets.ViewSet):
+    
+    def retrieve(self,request):
+        pass
+    def update(self,request):
+        pass
+    def partial_update(self,request):
+        pass
+    
+    
     
