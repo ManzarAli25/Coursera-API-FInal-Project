@@ -1,5 +1,5 @@
 from django.urls import path
-from .views import MenuItemView,SingleMenuItemView, ManagerViewSet, DeliveryCrewViewSet
+from .views import MenuItemView,SingleMenuItemView, ManagerViewSet, DeliveryCrewViewSet, CartViewSet
 
 urlpatterns = [
         path('menu-items/', MenuItemView.as_view({'get': 'list',
@@ -23,6 +23,12 @@ urlpatterns = [
                                                   'post':'create',
                                                   'delete':'destroy'}
                                                  ),name="manager"),
+        
+        
+        path('cart/menu-items/',CartViewSet.as_view({'get': 'list',
+                                                  'post':'create',
+                                                  'delete':'destroy'}
+                                                 ),name="cart"),
 
 
 ]

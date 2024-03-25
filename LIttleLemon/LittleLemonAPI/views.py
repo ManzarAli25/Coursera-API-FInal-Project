@@ -1,12 +1,13 @@
 from rest_framework.response import Response
 from rest_framework.decorators import api_view, permission_classes
-from .models import MenuItem
-from .serializers import MenuItemSerializer, UserSerializer
+from .models import MenuItem,Cart
+from .serializers import MenuItemSerializer, UserSerializer, CartSerializer
 from rest_framework.permissions import IsAuthenticated
 from .permissions import *
 from rest_framework import status, viewsets
 from django.contrib.auth.models import User, Group
 from django.shortcuts import get_object_or_404
+from decimal import Decimal
 
 
 
@@ -69,3 +70,41 @@ class DeliveryCrewViewSet(viewsets.ViewSet):
 
         return Response({"message":"delete successful! "}, status=status.HTTP_204_NO_CONTENT)
 
+
+class CartViewSet(viewsets.ViewSet):
+    permission_classes = [IsAuthenticated]
+    
+    def list(self, request):
+        carts = Cart.objects.filter(user=request.user) 
+        serializer = CartSerializer(carts, many=True)  
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+    
+    def create(self, request):
+        menuitem = get_object_or_404(MenuItem, title=request.data["title"])
+        quantity = request.data['quantity']
+        unit_price = menuitem.price
+        price = Decimal(quantity) *unit_price
+
+
+        cart_item = Cart.objects.create(
+                user=request.user,
+                menuitem=menuitem,
+                quantity=quantity,
+                unit_price=unit_price,
+                price=price
+            )
+
+        serializer = CartSerializer(cart_item)
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+    def destroy(self, request):
+        carts = Cart.objects.filter(user=request.user)
+        if not carts.exists():
+            raise PermissionDenied("Your cart is already empty.")
+
+        carts.delete()
+        return Response({"message":"Your cart has been emptied."}, status=status.HTTP_204_NO_CONTENT)
+  
+             
+    
